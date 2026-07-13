@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Preflight is disabled globally (see tailwind.config.ts) to protect the
+ * marketing CSS. But Tailwind's `border` utilities only set border-WIDTH and
+ * rely on preflight for border-style/color. We restore that behaviour ONLY
+ * inside feature UIs, scoped by [data-app-ui], so the marketing site is
+ * untouched.
+ */
+/*
+ * Premium 3D card (see components/premium-card.tsx). Pointer-driven tilt +
+ * specular sheen. Transform/opacity only — no layout thrash — and motion is
+ * removed entirely for prefers-reduced-motion.
+ */
+@layer components {
+  .card3d {
+    position: relative;
+    display: block;
+    isolation: isolate;
+    border-radius: 18px;
+    border: 1px solid #d8d2c8;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 247, 244, 0.86));
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 18px 40px -24px rgba(31, 31, 31, 0.28);
+    transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transform-style: preserve-3d;
+    transition:
+      transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform;
+  }
+  .card3d:hover {
+    border-color: rgba(176, 141, 87, 0.55);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 34px 70px -28px rgba(31, 31, 31, 0.4);
+  }
+  /* Specular highlight that follows the pointer. */
+  .card3d-sheen {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(
+      420px circle at var(--mx, 50%) var(--my, 50%),
+      rgba(255, 255, 255, 0.55),
+      transparent 42%
+    );
+    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .card3d:hover .card3d-sheen {
+    opacity: 1;
+  }
+  .card3d-inner {
+    position: relative;
+    z-index: 2;
+    display: block;
+    height: 100%;
+    transform: translateZ(28px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card3d,
+    .card3d-inner {
+      transform: none !important;
+      transition: none;
+    }
+    .card3d-sheen {
+      display: none;
+    }
+  }
+}
+
+@layer base {
+  [data-app-ui],
+  [data-app-ui] *,
+  [data-app-ui] *::before,
+  [data-app-ui] *::after {
+    border-width: 0;
+    border-style: solid;
+    border-color: #d8d2c8;
+  }
+  [data-app-ui] *,
+  [data-app-ui] *::before,
+  [data-app-ui] *::after {
+    box-sizing: border-box;
+  }
+}
