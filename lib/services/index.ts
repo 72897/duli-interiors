@@ -394,6 +394,168 @@ export async function getVendors(): Promise<Vendor[]> {
   return MOCK_VENDORS;
 }
 
+export type Lead = {
+  id: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  city: string | null;
+  serviceType: string | null;
+  estimatedBudget: number | null;
+  source: string | null;
+  status: string;
+  nextFollowUpAt: string | null;
+  notes: string | null;
+  createdAt: string;
+};
+
+/** Sales lead pipeline (RLS: sales/PM/admin). */
+export async function getLeads(): Promise<Lead[]> {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("leads")
+    .select(
+      "id, full_name, email, phone, city, service_type, estimated_budget, source, status, next_follow_up_at, notes, created_at",
+    )
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return data.map((r) => ({
+    id: r.id as string,
+    fullName: r.full_name as string,
+    email: (r.email as string) ?? null,
+    phone: (r.phone as string) ?? null,
+    city: (r.city as string) ?? null,
+    serviceType: (r.service_type as string) ?? null,
+    estimatedBudget: (r.estimated_budget as number) ?? null,
+    source: (r.source as string) ?? null,
+    status: (r.status as string) ?? "new",
+    nextFollowUpAt: (r.next_follow_up_at as string) ?? null,
+    notes: (r.notes as string) ?? null,
+    createdAt: r.created_at as string,
+  }));
+}
+
+export type Client = {
+  id: string;
+  name: string;
+  city: string | null;
+  phone: string | null;
+  projectCount: number;
+};
+
+/** Customers who have projects (RLS-scoped: admins see all, staff see theirs). */
+export async function getClients(): Promise<Client[]> {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return [];
+  const { data: projs } = await supabase
+    .from("projects")
+    .select("customer_id")
+    .is("deleted_at", null);
+  const counts = new Map<string, number>();
+  for (const p of projs ?? []) {
+    const id = p.customer_id as string;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  const ids = [...counts.keys()];
+  if (ids.length === 0) return [];
+  const { data: profs } = await supabase
+    .from("profiles")
+    .select("id, full_name, city, phone")
+    .in("id", ids);
+  return (profs ?? [])
+    .map((r) => ({
+      id: r.id as string,
+      name: (r.full_name as string) || "Customer",
+      city: (r.city as string) ?? null,
+      phone: (r.phone as string) ?? null,
+      projectCount: counts.get(r.id as string) ?? 0,
+    }))
+    .sort((a, b) => b.projectCount - a.projectCount);
+}
+
+export type WorkOrder = {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  city: string | null;
+};
+
+/** Projects assigned to the caller (member); admins see all. */
+export async function getWorkOrders(): Promise<WorkOrder[]> {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return [];
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data: mem } = await supabase
+    .from("project_members")
+    .select("project_id")
+    .eq("profile_id", user.id);
+  const ids = (mem ?? []).map((m) => m.project_id as string);
+
+  let q = supabase
+    .from("projects")
+    .select("id, code, name, status, city")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+  if (ids.length > 0) q = q.in("id", ids);
+
+  const { data } = await q;
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    code: r.code as string,
+    name: r.name as string,
+    status: r.status as string,
+    city: (r.city as string) ?? null,
+  }));
+}
+
+export type VendorPlacement = {
+  catalogItemId: string;
+  itemName: string;
+  placements: number;
+  cities: string[];
+};
+
+/** Where the caller's products have been specified on projects (aggregates). */
+export async function getVendorPlacements(): Promise<VendorPlacement[]> {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc("my_vendor_placements");
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map((r) => ({
+    catalogItemId: r.catalog_item_id as string,
+    itemName: r.item_name as string,
+    placements: Number(r.placements ?? 0),
+    cities: (r.cities as string[]) ?? [],
+  }));
+}
+
+/** The caller's own linked vendor org (null if not linked or table missing). */
+export async function getMyVendor(): Promise<Vendor | null> {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return null;
+  const vid = await getMyVendorId();
+  if (!vid) return null;
+  const { data } = await supabase
+    .from("vendors")
+    .select("id, name, city, categories, item_count, approved")
+    .eq("id", vid)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    name: data.name as string,
+    city: (data.city as string) ?? "",
+    categories: (data.categories as Vendor["categories"]) ?? [],
+    itemCount: (data.item_count as number) ?? 0,
+    approved: !!data.approved,
+  };
+}
+
 // ── Estimates (real, mock fallback) ─────────────────────────
 type EstimateRow = {
   id: string;
