@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { getCurrentUser, getVendors } from "@/lib/services";
-import { PageHead, Panel, Pill, MockNotice } from "@/components/app-ui";
+import { getCurrentUser, getMyVendor } from "@/lib/services";
+import { PageHead, Panel, Pill } from "@/components/app-ui";
+import { VendorProfileForm } from "@/components/vendor-profile-form";
 
 export const metadata: Metadata = { title: "Vendor profile — Duli Interiors" };
 
@@ -16,9 +17,7 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 export default async function VendorProfilePage() {
-  const [user, vendors] = await Promise.all([getCurrentUser(), getVendors()]);
-  // Stand-in vendor org until vendors are tied to accounts.
-  const org = vendors[0];
+  const [user, vendor] = await Promise.all([getCurrentUser(), getMyVendor()]);
 
   return (
     <div>
@@ -36,41 +35,42 @@ export default async function VendorProfilePage() {
         }
       />
 
-      <MockNotice>
-        Vendor organisations aren&apos;t linked to accounts yet — the brand card
-        below is sample data. Your contact details are real.
-      </MockNotice>
-
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel className="p-6">
-          <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted">
-            Brand
-          </p>
-          {org ? (
-            <>
-              <div className="mt-2 flex items-center gap-2.5">
-                <h2 className="font-serif text-[22px]">{org.name}</h2>
-                {org.approved ? (
-                  <Pill tone="olive">Approved</Pill>
-                ) : (
-                  <Pill tone="brass">Pending review</Pill>
-                )}
-              </div>
-              <dl className="mt-5 grid gap-5 sm:grid-cols-2">
-                <Field label="City" value={org.city} />
-                <Field label="Listed items" value={String(org.itemCount)} />
-                <Field
-                  label="Categories"
-                  value={org.categories.map((c) => c.replace(/_/g, " ")).join(", ")}
-                />
-              </dl>
-            </>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted">
+              Brand
+            </p>
+            {vendor &&
+              (vendor.approved ? (
+                <Pill tone="olive">Approved</Pill>
+              ) : (
+                <Pill tone="brass">Pending review</Pill>
+              ))}
+          </div>
+
+          {vendor ? (
+            <div className="mt-3">
+              <VendorProfileForm
+                initialName={vendor.name}
+                initialCity={vendor.city}
+                initialCategories={vendor.categories}
+              />
+              <p className="mt-4 text-[11.5px] text-muted">
+                {vendor.itemCount} listed item{vendor.itemCount === 1 ? "" : "s"} ·
+                approval is set by the Duli team.
+              </p>
+            </div>
           ) : (
-            <p className="mt-2 text-[13px] text-muted">No brand on file.</p>
+            <p className="mt-3 max-w-[46ch] text-[13px] text-muted">
+              Your account isn&apos;t linked to a vendor organisation yet. Ask a
+              Duli admin to connect it, then your brand profile appears here to
+              edit.
+            </p>
           )}
         </Panel>
 
-        <Panel className="p-6">
+        <Panel className="h-max p-6">
           <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted">
             Contact
           </p>
@@ -80,6 +80,13 @@ export default async function VendorProfilePage() {
             <Field label="Phone" value={user?.phone ?? ""} />
             <Field label="City" value={(user?.city as string) ?? ""} />
           </dl>
+          <p className="mt-4 text-[11.5px] text-muted">
+            Contact details come from your account. Update them in{" "}
+            <a href="/settings" className="text-olive underline underline-offset-2">
+              Settings
+            </a>
+            .
+          </p>
         </Panel>
       </div>
     </div>
