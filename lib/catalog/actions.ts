@@ -166,6 +166,49 @@ export async function addCatalogItem(
   return { ok: true };
 }
 
+const vendorProfileSchema = z.object({
+  name: z.string().trim().min(2, "Give your brand a name.").max(120),
+  city: z.string().trim().max(60),
+  categories: z.array(z.string().trim().max(40)).max(12),
+});
+
+/**
+ * A vendor edits their own brand profile (name, city, categories). Goes through
+ * the SECURITY DEFINER `update_my_vendor` RPC (migration 0019) which only ever
+ * writes those display fields — a vendor can never self-approve. Degrades
+ * cleanly if 0019 isn't applied yet.
+ */
+export async function updateMyVendor(input: {
+  name: string;
+  city: string;
+  categories: string[];
+}): Promise<{ ok?: boolean; error?: string }> {
+  const parsed = vendorProfileSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid details." };
+  }
+
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return { error: "Not available right now." };
+
+  const { error } = await supabase.rpc("update_my_vendor", {
+    p_name: parsed.data.name,
+    p_city: parsed.data.city,
+    p_categories: parsed.data.categories,
+  });
+  if (error) {
+    // Function missing (0019 not applied): PostgREST PGRST202 / Postgres 42883.
+    if (error.code === "PGRST202" || error.code === "42883") {
+      return { error: "Editing isn't enabled yet — ask the team to apply migration 0019." };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/vendor/profile");
+  revalidatePath("/vendor");
+  return { ok: true };
+}
+
 /**
  * Approve or un-approve a vendor. Admin-only (DB `vendors_write_admin`); the
  * role re-check yields a clean message instead of a raw RLS rejection. Only
