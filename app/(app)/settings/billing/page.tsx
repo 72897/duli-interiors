@@ -68,14 +68,15 @@ export default async function BillingPage() {
           preview cycle and cost nothing.
         </p>
 
-        <button
-          type="button"
-          disabled
-          title="Paid plans aren't available yet"
-          className="mt-6 h-11 w-full cursor-not-allowed rounded-full bg-ink/[0.06] text-[13px] font-medium text-muted"
+        <a
+          href="/pricing"
+          className="mt-6 flex h-11 w-full items-center justify-center rounded-full border border-ink text-[13px] font-medium text-ink transition-colors duration-200 hover:bg-ink hover:text-bg"
         >
-          Upgrade — coming later
-        </button>
+          View plans <span aria-hidden="true" className="ml-1">→</span>
+        </a>
+        <p className="mt-2 text-center text-[11.5px] text-muted">
+          Paid plans aren&apos;t billable yet — the team activates them manually.
+        </p>
       </Panel>
     </div>
   );
