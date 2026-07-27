@@ -90,14 +90,23 @@ export async function signUp(
   };
 }
 
-/** Google OAuth — returns a redirect URL for the client to follow. */
-export async function signInWithGoogle(): Promise<AuthState> {
+/**
+ * Google OAuth (sign in or sign up — same flow). Redirects to Google; on
+ * return, /auth/callback exchanges the code for a session and lands the user on
+ * `redirectTo` (default: dashboard), so signing in from a gated page returns
+ * there. A first-time Google user gets a profile + customer role via the
+ * handle_new_user trigger.
+ */
+export async function signInWithGoogle(redirectTo?: string): Promise<AuthState> {
   const supabase = createSupabaseServerClient();
   if (!supabase) return { error: NOT_CONFIGURED };
 
+  const next = redirectTo && redirectTo.startsWith("/") ? redirectTo : "/dashboard";
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${siteUrl()}/auth/callback` },
+    options: {
+      redirectTo: `${siteUrl()}/auth/callback?redirect=${encodeURIComponent(next)}`,
+    },
   });
   if (error) return { error: error.message };
   if (data.url) redirect(data.url);

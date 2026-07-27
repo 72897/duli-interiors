@@ -44,7 +44,7 @@ export function AuthForm({
 
   const onGoogle = () =>
     startTransition(async () => {
-      const res = await signInWithGoogle();
+      const res = await signInWithGoogle(redirectTo);
       if (res?.error) setGoogleErr(res.error);
     });
 
